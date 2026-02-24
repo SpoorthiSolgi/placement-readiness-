@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Building2, Briefcase, Trash2, ExternalLink, FileText } from 'lucide-react';
+import { Clock, Building2, Briefcase, Trash2, ExternalLink, FileText, AlertTriangle } from 'lucide-react';
 import { getHistory, deleteHistoryEntry, formatDate } from '../utils/historyStorage';
+import { getAllSkillsFromStructure } from '../utils/schema';
 
 function History() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
+  const [corruptedWarning, setCorruptedWarning] = useState(false);
 
   useEffect(() => {
     loadHistory();
@@ -14,6 +16,20 @@ function History() {
   const loadHistory = () => {
     const entries = getHistory();
     setHistory(entries);
+    
+    // Check if any entries were corrupted (would have been filtered out)
+    // We can detect this by checking localStorage directly
+    try {
+      const rawData = localStorage.getItem('placement_readiness_history');
+      if (rawData) {
+        const parsed = JSON.parse(rawData);
+        if (Array.isArray(parsed) && parsed.length !== entries.length) {
+          setCorruptedWarning(true);
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
   };
 
   const handleDelete = (id, e) => {
@@ -42,6 +58,16 @@ function History() {
           View your previous job description analyses and preparation plans.
         </p>
       </div>
+
+      {/* Corrupted Entry Warning */}
+      {corruptedWarning && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800">
+            One saved entry couldn't be loaded. Create a new analysis.
+          </p>
+        </div>
+      )}
 
       {history.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
@@ -93,13 +119,13 @@ function History() {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getScoreColor(entry.readinessScore)}`}>
-                      Score: {entry.readinessScore}/100
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getScoreColor(entry.finalScore ?? entry.baseScore)}`}>
+                      Score: {entry.finalScore ?? entry.baseScore}/100
                     </span>
                     
-                    {!entry.extractedSkills.general && (
+                    {entry.extractedSkills && (
                       <span className="text-sm text-gray-500">
-                        {Object.keys(entry.extractedSkills).length} skill categories detected
+                        {getAllSkillsFromStructure(entry.extractedSkills).length} skills detected
                       </span>
                     )}
                   </div>

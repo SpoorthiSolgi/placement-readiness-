@@ -1,19 +1,20 @@
 /**
  * Generate 10 likely interview questions based on detected skills
- * @param {Object} extractedSkills - Skills extracted from JD
+ * @param {Object} extractedSkills - Skills extracted from JD (standardized format)
  * @returns {string[]} - Array of interview questions
  */
 export function generateQuestions(extractedSkills) {
   const hasSkill = (category, keyword) => {
-    if (extractedSkills.general) return false;
-    const cat = extractedSkills[category];
-    if (!cat || !cat.skills) return false;
-    return cat.skills.some(s => s.toLowerCase().includes(keyword.toLowerCase()));
+    const skills = extractedSkills?.[category];
+    if (!Array.isArray(skills)) return false;
+    return skills.some(s => s.toLowerCase().includes(keyword.toLowerCase()));
   };
 
   const hasAny = (categories) => {
-    if (extractedSkills.general) return false;
-    return categories.some(cat => extractedSkills[cat] && extractedSkills[cat].skills?.length > 0);
+    return categories.some(cat => {
+      const skills = extractedSkills?.[cat];
+      return Array.isArray(skills) && skills.length > 0;
+    });
   };
 
   const questions = [];
@@ -58,12 +59,12 @@ export function generateQuestions(extractedSkills) {
   }
 
   // Cloud/DevOps questions
-  if (hasAny(['cloudDevOps'])) {
+  if (hasAny(['cloud'])) {
     questions.push('Explain the difference between Docker and Kubernetes. When would you use each?');
     questions.push('What is CI/CD? Describe a typical pipeline you would set up.');
   }
 
-  if (hasSkill('cloudDevOps', 'AWS')) {
+  if (hasSkill('cloud', 'AWS')) {
     questions.push('Name some AWS services you have used. Explain EC2, S3, and Lambda.');
   }
 
@@ -91,7 +92,7 @@ export function generateQuestions(extractedSkills) {
   }
 
   // System Design (if senior role indicators)
-  if (hasAny(['cloudDevOps', 'data']) && questions.length < 8) {
+  if (hasAny(['cloud', 'data']) && questions.length < 8) {
     questions.push('How would you design a URL shortener service?');
     questions.push('Design a rate limiter for an API. What approaches would you consider?');
   }

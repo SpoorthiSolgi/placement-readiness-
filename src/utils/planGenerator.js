@@ -1,25 +1,26 @@
 /**
  * Generate 7-day preparation plan based on detected skills
- * @param {Object} extractedSkills - Skills extracted from JD
+ * @param {Object} extractedSkills - Skills extracted from JD (standardized format)
  * @returns {Array} - 7-day plan with daily tasks
  */
 export function generatePlan(extractedSkills) {
   const hasSkill = (category, keyword) => {
-    if (extractedSkills.general) return false;
-    const cat = extractedSkills[category];
-    if (!cat || !cat.skills) return false;
-    return cat.skills.some(s => s.toLowerCase().includes(keyword.toLowerCase()));
+    const skills = extractedSkills?.[category];
+    if (!Array.isArray(skills)) return false;
+    return skills.some(s => s.toLowerCase().includes(keyword.toLowerCase()));
   };
 
   const hasAny = (categories) => {
-    if (extractedSkills.general) return false;
-    return categories.some(cat => extractedSkills[cat] && extractedSkills[cat].skills?.length > 0);
+    return categories.some(cat => {
+      const skills = extractedSkills?.[cat];
+      return Array.isArray(skills) && skills.length > 0;
+    });
   };
 
   const plan = [
     {
       day: 1,
-      title: 'Basics + Core CS',
+      focus: 'Basics + Core CS',
       tasks: [
         'Review fundamental data structures (Arrays, Linked Lists)',
         'Study OOP concepts and principles',
@@ -29,7 +30,7 @@ export function generatePlan(extractedSkills) {
     },
     {
       day: 2,
-      title: 'Core CS Continued',
+      focus: 'Core CS Continued',
       tasks: [
         'Study DBMS fundamentals',
         'Practice SQL queries (basic to intermediate)',
@@ -39,7 +40,7 @@ export function generatePlan(extractedSkills) {
     },
     {
       day: 3,
-      title: 'DSA + Coding Practice',
+      focus: 'DSA + Coding Practice',
       tasks: [
         'Focus on Trees and Graphs',
         'Practice recursion and backtracking',
@@ -49,7 +50,7 @@ export function generatePlan(extractedSkills) {
     },
     {
       day: 4,
-      title: 'Advanced DSA',
+      focus: 'Advanced DSA',
       tasks: [
         'Study Dynamic Programming patterns',
         'Practice greedy algorithms',
@@ -59,7 +60,7 @@ export function generatePlan(extractedSkills) {
     },
     {
       day: 5,
-      title: 'Project + Resume Alignment',
+      focus: 'Project + Resume Alignment',
       tasks: [
         'Review and update resume',
         'Prepare project explanations',
@@ -69,7 +70,7 @@ export function generatePlan(extractedSkills) {
     },
     {
       day: 6,
-      title: 'Mock Interview Questions',
+      focus: 'Mock Interview Questions',
       tasks: [
         'Practice technical interview questions',
         'Conduct mock coding interview',
@@ -79,7 +80,7 @@ export function generatePlan(extractedSkills) {
     },
     {
       day: 7,
-      title: 'Revision + Weak Areas',
+      focus: 'Revision + Weak Areas',
       tasks: [
         'Review all weak areas identified during the week',
         'Practice company-specific questions',
@@ -105,7 +106,7 @@ export function generatePlan(extractedSkills) {
     plan[4].tasks.push('Database design practice for your projects');
   }
 
-  if (hasAny(['cloudDevOps'])) {
+  if (hasAny(['cloud'])) {
     plan[4].tasks.push('Review cloud services and deployment strategies');
     plan[5].tasks.push('Practice DevOps and CI/CD questions');
   }

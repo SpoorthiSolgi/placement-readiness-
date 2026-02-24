@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, BookOpen, Calendar, HelpCircle, Target, Copy, D
 import { getHistoryEntry, updateHistoryEntry } from '../utils/historyStorage';
 import { getAllSkills } from '../utils/skillExtractor';
 import { copyToClipboard, formatPlanAsText, formatChecklistAsText, formatQuestionsAsText, generateFullReport, downloadAsFile } from '../utils/exportUtils';
+import { calculateFinalScore, getAllSkillsFromStructure } from '../utils/schema';
 import CircularProgress from '../components/CircularProgress';
 
 function Results() {
@@ -12,7 +13,7 @@ function Results() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [skillConfidenceMap, setSkillConfidenceMap] = useState({});
-  const [adjustedScore, setAdjustedScore] = useState(0);
+  const [finalScore, setFinalScore] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState('');
 
   const id = searchParams.get('id');
@@ -30,37 +31,28 @@ function Results() {
       // Initialize skill confidence map from saved data or default to 'practice'
       const savedMap = entry.skillConfidenceMap || {};
       setSkillConfidenceMap(savedMap);
-      setAdjustedScore(entry.readinessScore);
+      // Use finalScore if available, otherwise use baseScore
+      setFinalScore(entry.finalScore ?? entry.baseScore ?? 0);
     } else {
       navigate('/dashboard/history');
     }
     setLoading(false);
   }, [id, navigate]);
 
-  // Calculate adjusted score based on skill confidence
+  // Calculate final score based on skill confidence (only changes from toggles)
   useEffect(() => {
     if (!analysis) return;
     
-    const allSkills = getAllSkills(analysis.extractedSkills);
-    let scoreAdjustment = 0;
+    // Calculate new final score based on baseScore and confidence map
+    const newFinalScore = calculateFinalScore(analysis.baseScore, skillConfidenceMap);
+    setFinalScore(newFinalScore);
     
-    allSkills.forEach(skill => {
-      const confidence = skillConfidenceMap[skill];
-      if (confidence === 'know') {
-        scoreAdjustment += 2;
-      } else if (confidence === 'practice') {
-        scoreAdjustment -= 2;
-      }
-    });
-    
-    const newScore = Math.max(0, Math.min(100, analysis.readinessScore + scoreAdjustment));
-    setAdjustedScore(newScore);
-    
-    // Save to localStorage
+    // Persist to localStorage with updatedAt timestamp
     if (id) {
       updateHistoryEntry(id, {
         skillConfidenceMap,
-        adjustedScore: newScore
+        finalScore: newFinalScore,
+        updatedAt: new Date().toISOString()
       });
     }
   }, [skillConfidenceMap, analysis, id]);
@@ -76,13 +68,13 @@ function Results() {
   // Get weak skills (marked as 'practice' or not set)
   const weakSkills = useMemo(() => {
     if (!analysis) return [];
-    const allSkills = getAllSkills(analysis.extractedSkills);
+    const allSkills = getAllSkillsFromStructure(analysis.extractedSkills);
     return allSkills.filter(skill => skillConfidenceMap[skill] !== 'know').slice(0, 3);
   }, [analysis, skillConfidenceMap]);
 
   // Export handlers
   const handleCopyPlan = async () => {
-    const text = formatPlanAsText(analysis.plan);
+    const text = formatPlanAsText(analysis.plan7Days);
     const success = await copyToClipboard(text);
     setCopyFeedback(success ? 'Plan copied!' : 'Failed to copy');
     setTimeout(() => setCopyFeedback(''), 2000);
@@ -105,7 +97,7 @@ function Results() {
   const handleDownloadReport = () => {
     const report = generateFullReport({
       ...analysis,
-      readinessScore: adjustedScore,
+      finalScore,
       skillConfidenceMap
     });
     const filename = `placement-analysis-${analysis.company || 'unknown'}-${new Date().toISOString().split('T')[0]}.txt`;
@@ -124,10 +116,12 @@ function Results() {
     return null;
   }
 
-  const { company, role, extractedSkills, plan, checklist, questions } = analysis;
+  const { company, role, extractedSkills, plan7Days, checklist, questions } = analysis;
 
-  // Check if it's a general stack
-  const isGeneralStack = extractedSkills.general !== undefined;
+  // Check if using default skills (other category has defaults)
+  const hasDefaultSkills = extractedSkills?.other?.some(skill => 
+    ['Communication', 'Problem solving', 'Basic coding', 'Projects'].includes(skill)
+  );
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -153,7 +147,7 @@ function Results() {
       {/* Readiness Score */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-6">
         <div className="flex flex-col md:flex-row items-center gap-8">
-          <CircularProgress score={adjustedScore} size={180} strokeWidth={10} />
+          <CircularProgress score={finalScore} size={180} strokeWidth={10} />
           <div className="flex-1">
             <h3 className="text-xl font-bold text-gray-900 mb-2">Readiness Assessment</h3>
             <p className="text-gray-600 mb-4">
@@ -161,17 +155,17 @@ function Results() {
               Toggle your skill confidence below to update your score in real-time.
             </p>
             <div className="flex flex-wrap gap-2">
-              {adjustedScore >= 80 && (
+              {finalScore >= 80 && (
                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                   Well Prepared
                 </span>
               )}
-              {adjustedScore >= 60 && adjustedScore < 80 && (
+              {finalScore >= 60 && finalScore < 80 && (
                 <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                   Good Progress
                 </span>
               )}
-              {adjustedScore < 60 && (
+              {finalScore < 60 && (
                 <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
                   Needs Preparation
                 </span>
@@ -192,20 +186,35 @@ function Results() {
           <span className="text-sm font-normal text-gray-500 ml-2">(Click to toggle confidence)</span>
         </h3>
         
-        {isGeneralStack ? (
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-gray-700 font-medium">{extractedSkills.general[0]}</p>
-            <p className="text-sm text-gray-500 mt-1">
-              No specific technical skills detected. Consider adding more details to the JD.
+        {hasDefaultSkills ? (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-amber-800 font-medium">Default skills applied</p>
+            <p className="text-sm text-amber-700 mt-1">
+              No specific technical skills detected in the JD. Using general preparation skills.
+              Consider pasting a more detailed job description for better analysis.
             </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {Object.entries(extractedSkills).map(([key, category]) => (
+        ) : null}
+        
+        <div className="space-y-4 mt-4">
+          {Object.entries(extractedSkills).map(([key, skills]) => {
+            if (!Array.isArray(skills) || skills.length === 0) return null;
+            
+            const categoryLabels = {
+              coreCS: 'Core Computer Science',
+              languages: 'Programming Languages',
+              web: 'Web Development',
+              data: 'Data & Databases',
+              cloud: 'Cloud & DevOps',
+              testing: 'Testing',
+              other: 'Other Skills'
+            };
+            
+            return (
               <div key={key}>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">{category.label}</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">{categoryLabels[key] || key}</h4>
                 <div className="flex flex-wrap gap-2">
-                  {category.skills.map((skill, idx) => {
+                  {skills.map((skill, idx) => {
                     const confidence = skillConfidenceMap[skill] || 'practice';
                     const isKnown = confidence === 'know';
                     return (
@@ -229,9 +238,9 @@ function Results() {
                   })}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
 
       {/* 7-Day Plan */}
@@ -241,19 +250,19 @@ function Results() {
           7-Day Preparation Plan
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {plan.map((day) => (
+          {plan7Days?.map((day) => (
             <div key={day.day} id={`day-${day.day}`} className="p-4 bg-gray-50 rounded-lg">
               <h4 className="font-semibold text-gray-900 mb-2">
-                Day {day.day}: {day.title}
+                Day {day.day}: {day.focus}
               </h4>
               <ul className="space-y-1">
-                {day.tasks.slice(0, 3).map((task, idx) => (
+                {day.tasks?.slice(0, 3).map((task, idx) => (
                   <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
                     <span className="text-primary-500 mt-1">•</span>
                     <span className="line-clamp-2">{task}</span>
                   </li>
                 ))}
-                {day.tasks.length > 3 && (
+                {day.tasks?.length > 3 && (
                   <li className="text-sm text-gray-400">+{day.tasks.length - 3} more tasks</li>
                 )}
               </ul>
@@ -269,12 +278,12 @@ function Results() {
           Round-wise Checklist
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Object.entries(checklist).map(([key, round]) => (
-            <div key={key} className="p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-semibold text-gray-900 mb-3">{round.title}</h4>
+          {Array.isArray(checklist) && checklist.map((round, idx) => (
+            <div key={idx} className="p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-3">{round.roundTitle}</h4>
               <ul className="space-y-2">
-                {round.items.slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
+                {round.items?.slice(0, 5).map((item, itemIdx) => (
+                  <li key={itemIdx} className="text-sm text-gray-600 flex items-start gap-2">
                     <input type="checkbox" className="mt-1 rounded text-primary-600" />
                     <span>{item}</span>
                   </li>
@@ -342,7 +351,7 @@ function Results() {
       </div>
 
       {/* Action Next Box */}
-      {!isGeneralStack && weakSkills.length > 0 && (
+      {weakSkills.length > 0 && (
         <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl border border-primary-100 p-6">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">

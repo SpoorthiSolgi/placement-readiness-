@@ -1,19 +1,20 @@
 /**
  * Generate round-wise checklist based on detected skills
- * @param {Object} extractedSkills - Skills extracted from JD
- * @returns {Object} - Checklist for each round
+ * @param {Object} extractedSkills - Skills extracted from JD (standardized format)
+ * @returns {Array} - Checklist array for each round
  */
 export function generateChecklist(extractedSkills) {
   const hasSkill = (category, keyword) => {
-    if (extractedSkills.general) return false;
-    const cat = extractedSkills[category];
-    if (!cat || !cat.skills) return false;
-    return cat.skills.some(s => s.toLowerCase().includes(keyword.toLowerCase()));
+    const skills = extractedSkills?.[category];
+    if (!Array.isArray(skills)) return false;
+    return skills.some(s => s.toLowerCase().includes(keyword.toLowerCase()));
   };
 
   const hasAny = (categories) => {
-    if (extractedSkills.general) return false;
-    return categories.some(cat => extractedSkills[cat] && extractedSkills[cat].skills?.length > 0);
+    return categories.some(cat => {
+      const skills = extractedSkills?.[cat];
+      return Array.isArray(skills) && skills.length > 0;
+    });
   };
 
   // Round 1: Aptitude / Basics
@@ -76,7 +77,7 @@ export function generateChecklist(extractedSkills) {
   if (hasSkill('data', 'SQL')) {
     round3.push('Master complex SQL queries (joins, subqueries, window functions)');
   }
-  if (hasAny(['cloudDevOps'])) {
+  if (hasAny(['cloud'])) {
     round3.push('Understand cloud services and deployment strategies');
     round3.push('Review CI/CD pipelines and containerization');
   }
@@ -96,10 +97,11 @@ export function generateChecklist(extractedSkills) {
     'Practice confidence and communication skills'
   ];
 
-  return {
-    round1: { title: 'Round 1: Aptitude / Basics', items: round1 },
-    round2: { title: 'Round 2: DSA + Core CS', items: round2 },
-    round3: { title: 'Round 3: Technical Interview', items: round3 },
-    round4: { title: 'Round 4: Managerial / HR', items: round4 }
-  };
+  // Return standardized array format
+  return [
+    { roundTitle: 'Round 1: Aptitude / Basics', items: round1 },
+    { roundTitle: 'Round 2: DSA + Core CS', items: round2 },
+    { roundTitle: 'Round 3: Technical Interview', items: round3 },
+    { roundTitle: 'Round 4: Managerial / HR', items: round4 }
+  ];
 }

@@ -26,18 +26,27 @@ const SKILL_CATEGORIES = {
   }
 };
 
+// Default skills when none detected
+const DEFAULT_SKILLS = ['Communication', 'Problem solving', 'Basic coding', 'Projects'];
+
 /**
  * Extract skills from JD text using keyword matching
+ * Returns standardized format for schema compliance
  * @param {string} jdText - Job description text
- * @returns {Object} - Extracted skills grouped by category
+ * @returns {Object} - Extracted skills in standardized format
  */
 export function extractSkills(jdText) {
-  if (!jdText || jdText.trim().length === 0) {
-    return { general: ['General fresher stack'] };
-  }
-
-  const text = jdText.toLowerCase();
-  const extractedSkills = {};
+  const text = (jdText || '').toLowerCase();
+  const extractedSkills = {
+    coreCS: [],
+    languages: [],
+    web: [],
+    data: [],
+    cloud: [],
+    testing: [],
+    other: []
+  };
+  
   let hasAnySkill = false;
 
   Object.entries(SKILL_CATEGORIES).forEach(([category, data]) => {
@@ -52,49 +61,72 @@ export function extractSkills(jdText) {
       }
     });
 
-    if (foundSkills.length > 0) {
-      extractedSkills[category] = {
-        label: data.label,
-        skills: [...new Set(foundSkills)] // Remove duplicates
-      };
+    // Map category names to standardized schema
+    const categoryMap = {
+      coreCS: 'coreCS',
+      languages: 'languages',
+      web: 'web',
+      data: 'data',
+      cloudDevOps: 'cloud',
+      testing: 'testing'
+    };
+
+    const mappedCategory = categoryMap[category];
+    if (mappedCategory && foundSkills.length > 0) {
+      extractedSkills[mappedCategory] = [...new Set(foundSkills)]; // Remove duplicates
     }
   });
 
-  // If no skills detected, return general stack
+  // If no skills detected, populate 'other' with defaults
   if (!hasAnySkill) {
-    return { general: ['General fresher stack'] };
+    extractedSkills.other = [...DEFAULT_SKILLS];
   }
 
   return extractedSkills;
 }
 
 /**
+ * Check if JD is too short for meaningful analysis
+ * @param {string} jdText - Job description text
+ * @returns {boolean}
+ */
+export function isJDTooShort(jdText) {
+  if (!jdText) return true;
+  return jdText.trim().length < 200;
+}
+
+/**
  * Get flat list of all detected skills
- * @param {Object} extractedSkills - Output from extractSkills
+ * @param {Object} extractedSkills - Output from extractSkills (standardized format)
  * @returns {string[]} - Flat array of skill names
  */
 export function getAllSkills(extractedSkills) {
-  if (extractedSkills.general) {
-    return extractedSkills.general;
+  if (!extractedSkills || typeof extractedSkills !== 'object') {
+    return [];
   }
 
-  const allSkills = [];
-  Object.values(extractedSkills).forEach(category => {
-    if (category.skills) {
-      allSkills.push(...category.skills);
-    }
-  });
-  return allSkills;
+  return [
+    ...(extractedSkills.coreCS || []),
+    ...(extractedSkills.languages || []),
+    ...(extractedSkills.web || []),
+    ...(extractedSkills.data || []),
+    ...(extractedSkills.cloud || []),
+    ...(extractedSkills.testing || []),
+    ...(extractedSkills.other || [])
+  ];
 }
 
 /**
  * Get categories present in the extracted skills
- * @param {Object} extractedSkills - Output from extractSkills
- * @returns {string[]} - Array of category keys
+ * @param {Object} extractedSkills - Output from extractSkills (standardized format)
+ * @returns {string[]} - Array of category keys with non-empty skills
  */
 export function getPresentCategories(extractedSkills) {
-  if (extractedSkills.general) {
+  if (!extractedSkills || typeof extractedSkills !== 'object') {
     return [];
   }
-  return Object.keys(extractedSkills);
+
+  return Object.entries(extractedSkills)
+    .filter(([_, skills]) => Array.isArray(skills) && skills.length > 0)
+    .map(([category]) => category);
 }

@@ -19,17 +19,19 @@ export async function copyToClipboard(text) {
 
 /**
  * Format 7-day plan as plain text
- * @param {Array} plan - 7-day plan array
+ * @param {Array} plan - 7-day plan array (plan7Days)
  * @returns {string} - Formatted text
  */
 export function formatPlanAsText(plan) {
+  if (!Array.isArray(plan)) return '📅 7-DAY PREPARATION PLAN\nNo plan available.\n';
+  
   let text = '📅 7-DAY PREPARATION PLAN\n';
   text += '=' .repeat(50) + '\n\n';
   
   plan.forEach(day => {
-    text += `Day ${day.day}: ${day.title}\n`;
+    text += `Day ${day.day}: ${day.focus}\n`;
     text += '-'.repeat(30) + '\n';
-    day.tasks.forEach(task => {
+    day.tasks?.forEach(task => {
       text += `• ${task}\n`;
     });
     text += '\n';
@@ -40,17 +42,19 @@ export function formatPlanAsText(plan) {
 
 /**
  * Format checklist as plain text
- * @param {Object} checklist - Round-wise checklist
+ * @param {Array} checklist - Round-wise checklist array
  * @returns {string} - Formatted text
  */
 export function formatChecklistAsText(checklist) {
+  if (!Array.isArray(checklist)) return '✅ ROUND-WISE CHECKLIST\nNo checklist available.\n';
+  
   let text = '✅ ROUND-WISE CHECKLIST\n';
   text += '=' .repeat(50) + '\n\n';
   
-  Object.values(checklist).forEach(round => {
-    text += `${round.title}\n`;
+  checklist.forEach(round => {
+    text += `${round.roundTitle}\n`;
     text += '-'.repeat(30) + '\n';
-    round.items.forEach(item => {
+    round.items?.forEach(item => {
       text += `[ ] ${item}\n`;
     });
     text += '\n';
@@ -65,6 +69,8 @@ export function formatChecklistAsText(checklist) {
  * @returns {string} - Formatted text
  */
 export function formatQuestionsAsText(questions) {
+  if (!Array.isArray(questions)) return '❓ LIKELY INTERVIEW QUESTIONS\nNo questions available.\n';
+  
   let text = '❓ LIKELY INTERVIEW QUESTIONS\n';
   text += '=' .repeat(50) + '\n\n';
   
@@ -77,11 +83,24 @@ export function formatQuestionsAsText(questions) {
 
 /**
  * Generate full analysis report as TXT
- * @param {Object} analysis - Full analysis object
+ * @param {Object} analysis - Full analysis object (standardized schema)
  * @returns {string} - Complete report text
  */
 export function generateFullReport(analysis) {
-  const { company, role, readinessScore, extractedSkills, plan, checklist, questions, skillConfidenceMap } = analysis;
+  const { 
+    company, 
+    role, 
+    baseScore, 
+    finalScore, 
+    extractedSkills, 
+    plan7Days, 
+    checklist, 
+    questions, 
+    skillConfidenceMap 
+  } = analysis;
+  
+  // Use finalScore if available, otherwise baseScore
+  const score = finalScore ?? baseScore ?? 0;
   
   let report = '';
   
@@ -99,10 +118,11 @@ export function generateFullReport(analysis) {
   }
   
   // Readiness Score
-  report += `📊 READINESS SCORE: ${readinessScore}/100\n`;
+  report += `📊 READINESS SCORE: ${score}/100\n`;
+  if (baseScore !== undefined) report += `Base Score: ${baseScore}/100\n`;
   report += '-'.repeat(30) + '\n';
-  if (readinessScore >= 80) report += 'Status: Well Prepared ✅\n';
-  else if (readinessScore >= 60) report += 'Status: Good Progress 📈\n';
+  if (score >= 80) report += 'Status: Well Prepared ✅\n';
+  else if (score >= 60) report += 'Status: Good Progress 📈\n';
   else report += 'Status: Needs Preparation ⚠️\n';
   report += '\n';
   
@@ -110,12 +130,22 @@ export function generateFullReport(analysis) {
   report += '🎯 EXTRACTED SKILLS\n';
   report += '-'.repeat(30) + '\n';
   
-  if (extractedSkills.general) {
-    report += `${extractedSkills.general[0]}\n`;
-  } else {
-    Object.values(extractedSkills).forEach(category => {
-      report += `\n${category.label}:\n`;
-      category.skills.forEach(skill => {
+  const categoryLabels = {
+    coreCS: 'Core Computer Science',
+    languages: 'Programming Languages',
+    web: 'Web Development',
+    data: 'Data & Databases',
+    cloud: 'Cloud & DevOps',
+    testing: 'Testing',
+    other: 'Other Skills'
+  };
+  
+  if (extractedSkills && typeof extractedSkills === 'object') {
+    Object.entries(extractedSkills).forEach(([category, skills]) => {
+      if (!Array.isArray(skills) || skills.length === 0) return;
+      
+      report += `\n${categoryLabels[category] || category}:\n`;
+      skills.forEach(skill => {
         const confidence = skillConfidenceMap?.[skill] || 'practice';
         const status = confidence === 'know' ? '✓' : '○';
         report += `  ${status} ${skill} (${confidence === 'know' ? 'Know' : 'Need Practice'})\n`;
@@ -125,7 +155,7 @@ export function generateFullReport(analysis) {
   report += '\n';
   
   // 7-Day Plan
-  report += formatPlanAsText(plan);
+  report += formatPlanAsText(plan7Days);
   report += '\n';
   
   // Checklist

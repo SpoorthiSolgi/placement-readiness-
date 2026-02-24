@@ -2,16 +2,65 @@ const STORAGE_KEY = 'placement_readiness_history';
 
 /**
  * Get all history entries from localStorage
- * @returns {Array} - Array of history entries
+ * Validates entries and filters out corrupted ones
+ * @returns {Array} - Array of valid history entries
  */
 export function getHistory() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) return [];
+    
+    // Filter out corrupted entries
+    const validEntries = [];
+    let corruptedCount = 0;
+    
+    parsed.forEach(entry => {
+      if (isValidEntry(entry)) {
+        validEntries.push(entry);
+      } else {
+        corruptedCount++;
+      }
+    });
+    
+    // If we found corrupted entries, update storage to remove them
+    if (corruptedCount > 0) {
+      console.warn(`Removed ${corruptedCount} corrupted history entries`);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(validEntries));
+    }
+    
+    return validEntries;
   } catch (error) {
     console.error('Error reading history:', error);
     return [];
   }
+}
+
+/**
+ * Validate a history entry
+ * @param {Object} entry - Entry to validate
+ * @returns {boolean}
+ */
+function isValidEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  
+  // Check required fields
+  const requiredFields = ['id', 'createdAt', 'jdText', 'extractedSkills', 'questions', 'baseScore'];
+  for (const field of requiredFields) {
+    if (!(field in entry)) return false;
+  }
+  
+  // Validate types
+  if (typeof entry.id !== 'string') return false;
+  if (typeof entry.createdAt !== 'string') return false;
+  if (typeof entry.jdText !== 'string') return false;
+  if (typeof entry.baseScore !== 'number') return false;
+  if (!Array.isArray(entry.questions)) return false;
+  if (!entry.extractedSkills || typeof entry.extractedSkills !== 'object') return false;
+  
+  return true;
 }
 
 /**

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Building2, Briefcase, Sparkles } from 'lucide-react';
-import { extractSkills, getPresentCategories } from '../utils/skillExtractor';
+import { FileText, Building2, Briefcase, Sparkles, AlertTriangle } from 'lucide-react';
+import { extractSkills, getPresentCategories, isJDTooShort } from '../utils/skillExtractor';
 import { calculateReadinessScore } from '../utils/readinessScore';
 import { generateChecklist } from '../utils/checklistGenerator';
 import { generatePlan } from '../utils/planGenerator';
 import { generateQuestions } from '../utils/questionGenerator';
 import { saveToHistory } from '../utils/historyStorage';
+import { createAnalysisEntry, calculateFinalScore } from '../utils/schema';
 
 function JDAnalyzer() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ function JDAnalyzer() {
   const handleAnalyze = async (e) => {
     e.preventDefault();
     
+    // Validation: JD is required
     if (!formData.jdText.trim()) {
       setError('Please enter a job description');
       return;
@@ -39,8 +41,8 @@ function JDAnalyzer() {
       const extractedSkills = extractSkills(formData.jdText);
       const categories = getPresentCategories(extractedSkills);
 
-      // Calculate readiness score
-      const readinessScore = calculateReadinessScore({
+      // Calculate base readiness score (computed only once on analyze)
+      const baseScore = calculateReadinessScore({
         company: formData.company,
         role: formData.role,
         jdText: formData.jdText,
@@ -52,17 +54,21 @@ function JDAnalyzer() {
       const plan = generatePlan(extractedSkills);
       const questions = generateQuestions(extractedSkills);
 
-      // Save to history
-      const savedEntry = saveToHistory({
+      // Create standardized entry with finalScore = baseScore initially
+      const entry = createAnalysisEntry({
         company: formData.company,
         role: formData.role,
         jdText: formData.jdText,
         extractedSkills,
-        plan,
         checklist,
+        plan7Days: plan,
         questions,
-        readinessScore
+        baseScore,
+        finalScore: baseScore
       });
+
+      // Save to history
+      const savedEntry = saveToHistory(entry);
 
       // Navigate to results with the saved entry ID
       navigate(`/dashboard/results?id=${savedEntry.id}`);
@@ -73,6 +79,9 @@ function JDAnalyzer() {
       setIsAnalyzing(false);
     }
   };
+
+  // Check if JD is too short for meaningful analysis
+  const showShortWarning = formData.jdText.length > 0 && formData.jdText.length < 200;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -132,12 +141,24 @@ function JDAnalyzer() {
               onChange={handleInputChange}
               rows={12}
               placeholder="Paste the full job description here. Include requirements, skills, and responsibilities..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors resize-vertical"
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors resize-vertical ${
+                showShortWarning ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
+              }`}
             />
             <div className="mt-2 flex justify-between text-sm text-gray-500">
               <span>{formData.jdText.length} characters</span>
-              <span>Minimum 100 characters recommended</span>
+              <span>Minimum 200 characters recommended</span>
             </div>
+            
+            {/* Short JD Warning */}
+            {showShortWarning && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  This JD is too short to analyze deeply. Paste full JD for better output.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Error Message */}
