@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import CircularProgress from '../components/CircularProgress';
 import SkillRadarChart from '../components/SkillRadarChart';
 import ContinuePractice from '../components/ContinuePractice';
@@ -5,9 +7,20 @@ import WeeklyGoals from '../components/WeeklyGoals';
 import UpcomingAssessments from '../components/UpcomingAssessments';
 
 function Dashboard() {
+  const navigate = useNavigate();
+
   return (
     <div>
-      <h2 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h2>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
+        <button
+          onClick={() => navigate('/dashboard/analyze')}
+          className="bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
+        >
+          <Sparkles className="w-5 h-5" />
+          Analyze JD
+        </button>
+      </div>
 
       {/* 2-Column Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
