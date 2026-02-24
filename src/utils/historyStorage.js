@@ -60,6 +60,37 @@ export function getHistoryEntry(id) {
 }
 
 /**
+ * Update an existing history entry
+ * @param {string} id - Entry ID to update
+ * @param {Object} updates - Fields to update
+ * @returns {Object|null} - Updated entry or null if not found
+ */
+export function updateHistoryEntry(id, updates) {
+  try {
+    const history = getHistory();
+    const index = history.findIndex(entry => entry.id === id);
+    
+    if (index === -1) {
+      return null;
+    }
+    
+    // Merge updates with existing entry
+    history[index] = {
+      ...history[index],
+      ...updates,
+      id, // Ensure ID doesn't change
+      createdAt: history[index].createdAt // Preserve original creation date
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    return history[index];
+  } catch (error) {
+    console.error('Error updating history entry:', error);
+    return null;
+  }
+}
+
+/**
  * Delete a history entry by ID
  * @param {string} id - Entry ID to delete
  * @returns {boolean} - Success status
