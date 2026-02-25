@@ -1,7 +1,15 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Sparkles, History, Code2, ClipboardList, BookOpen, User, Bell } from 'lucide-react';
+import { Outlet, NavLink, Link } from 'react-router-dom';
+import { LayoutDashboard, Sparkles, History, Code2, ClipboardList, BookOpen, User, Bell, ClipboardCheck, Rocket } from 'lucide-react';
+import { getChecklistSummary } from '../utils/testChecklist';
+import { useState, useEffect } from 'react';
 
 function DashboardLayout() {
+  const [testSummary, setTestSummary] = useState({ checked: 0, total: 10 });
+
+  useEffect(() => {
+    setTestSummary(getChecklistSummary());
+  }, []);
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/dashboard/analyze', label: 'JD Analyzer', icon: Sparkles },
@@ -44,6 +52,37 @@ function DashboardLayout() {
             ))}
           </ul>
         </nav>
+
+        {/* QA Section */}
+        <div className="p-4 border-t border-gray-200">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Quality Assurance</p>
+          <div className="space-y-2">
+            <Link
+              to="/prp/07-test"
+              className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <ClipboardCheck className="w-5 h-5" />
+              <span className="flex-1">Test Checklist</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                testSummary.checked === 10 
+                  ? 'bg-emerald-100 text-emerald-700' 
+                  : 'bg-amber-100 text-amber-700'
+              }`}>
+                {testSummary.checked}/10
+              </span>
+            </Link>
+            <Link
+              to="/prp/08-ship"
+              className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <Rocket className="w-5 h-5" />
+              <span>Ship</span>
+              {testSummary.checked === 10 && (
+                <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+              )}
+            </Link>
+          </div>
+        </div>
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-gray-200">
