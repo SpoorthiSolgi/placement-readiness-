@@ -6,6 +6,8 @@ import { calculateReadinessScore } from '../utils/readinessScore';
 import { generateChecklist } from '../utils/checklistGenerator';
 import { generatePlan } from '../utils/planGenerator';
 import { generateQuestions } from '../utils/questionGenerator';
+import { generateCompanyIntel } from '../utils/companyIntel';
+import { generateRoundMapping } from '../utils/roundMapping';
 import { saveToHistory } from '../utils/historyStorage';
 import { createAnalysisEntry, calculateFinalScore } from '../utils/schema';
 
@@ -49,6 +51,12 @@ function JDAnalyzer() {
         categories
       });
 
+      // Generate company intel
+      const companyIntel = generateCompanyIntel(formData.company, formData.jdText);
+
+      // Generate round mapping based on company size and skills
+      const roundMapping = generateRoundMapping(companyIntel.size, extractedSkills);
+
       // Generate outputs
       const checklist = generateChecklist(extractedSkills);
       const plan = generatePlan(extractedSkills);
@@ -60,6 +68,8 @@ function JDAnalyzer() {
         role: formData.role,
         jdText: formData.jdText,
         extractedSkills,
+        companyIntel,
+        roundMapping,
         checklist,
         plan7Days: plan,
         questions,

@@ -15,6 +15,7 @@ export function createAnalysisEntry({
   role = '',
   jdText,
   extractedSkills,
+  companyIntel,
   roundMapping,
   checklist,
   plan7Days,
@@ -34,6 +35,7 @@ export function createAnalysisEntry({
     role: sanitizeString(role),
     jdText: sanitizeString(jdText) || '',
     extractedSkills: normalizedSkills,
+    companyIntel: normalizeCompanyIntel(companyIntel),
     roundMapping: normalizeRoundMapping(roundMapping),
     checklist: normalizeChecklist(checklist),
     plan7Days: normalizePlan(plan7Days),
@@ -84,6 +86,23 @@ function normalizeExtractedSkills(skills) {
 }
 
 /**
+ * Normalize company intel
+ */
+function normalizeCompanyIntel(companyIntel) {
+  if (!companyIntel || typeof companyIntel !== 'object') {
+    return null;
+  }
+  
+  return {
+    companyName: sanitizeString(companyIntel.companyName),
+    industry: sanitizeString(companyIntel.industry),
+    size: sanitizeString(companyIntel.size),
+    hiringFocus: companyIntel.hiringFocus || {},
+    isDemo: !!companyIntel.isDemo
+  };
+}
+
+/**
  * Normalize round mapping
  */
 function normalizeRoundMapping(roundMapping) {
@@ -91,9 +110,14 @@ function normalizeRoundMapping(roundMapping) {
     return [];
   }
   return roundMapping.map(round => ({
-    roundTitle: sanitizeString(round.roundTitle || round.title),
-    focusAreas: normalizeArray(round.focusAreas),
-    whyItMatters: sanitizeString(round.whyItMatters)
+    roundNumber: Number(round.roundNumber) || 1,
+    title: sanitizeString(round.title),
+    focus: normalizeArray(round.focus),
+    description: sanitizeString(round.description),
+    whyItMatters: sanitizeString(round.whyItMatters),
+    duration: sanitizeString(round.duration),
+    difficulty: sanitizeString(round.difficulty),
+    tips: normalizeArray(round.tips)
   }));
 }
 
